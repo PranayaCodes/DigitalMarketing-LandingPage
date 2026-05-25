@@ -1,41 +1,42 @@
-import type { Metadata } from "next";
-import "./globals.css";
+import type { Metadata } from 'next'
+import './globals.css'
 
 export const metadata: Metadata = {
-  title: "Free 1:1 Digital Marketing Consultation | Pranaya",
+  title: 'Free 1:1 Digital Marketing Consultation in Nepal | Pranaya',
   description:
-    "Book a free 1:1 digital marketing consultation and receive a customized marketing strategy built specifically for your business.",
+    'Book a free 1:1 digital marketing consultation call and get a practical plan to bring more leads, customers, and sales for your Nepal-based business.',
+  keywords:
+    'digital marketing consultation Nepal, free marketing consultation, business leads Nepal, Facebook ads Nepal, online marketing Nepal',
   openGraph: {
-    title: "Stop Wasting Money on Random Marketing",
+    title: 'Free 1:1 Digital Marketing Consultation in Nepal',
     description:
-      "Get a free 1:1 digital marketing consultation and a customized marketing strategy for your business.",
-    type: "website",
-    images: [
-      {
-        url: "/logo.png",
-        width: 1600,
-        height: 1600,
-        alt: "Pranaya digital marketing consultation",
-      },
-    ],
+      'Get a simple digital marketing plan for your business. Built for Nepal-based business owners who want more customers.',
+    type: 'website',
+    locale: 'en_US',
   },
   twitter: {
-    card: "summary_large_image",
-    title: "Free 1:1 Digital Marketing Consultation | Pranaya",
-    description:
-      "Receive a customized marketing strategy built specifically for your business.",
-    images: ["/logo.png"],
+    card: 'summary_large_image',
+    title: 'Free 1:1 Digital Marketing Consultation in Nepal',
+    description: 'Get a practical marketing plan for your Nepal-based business.',
   },
-};
+  robots: {
+    index: true,
+    follow: true,
+  },
+}
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: {
+  children: React.ReactNode
+}) {
   return (
     <html lang="en">
-      <body className="font-sans antialiased">{children}</body>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      </head>
+      <body>{children}</body>
     </html>
-  );
+  )
 }

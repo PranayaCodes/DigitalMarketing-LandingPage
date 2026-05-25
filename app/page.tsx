@@ -1,21 +1,19 @@
-import Benefits from "@/components/Benefits";
-import ConsultationIncludes from "@/components/ConsultationIncludes";
-import CTAForm from "@/components/CTAForm";
-import FinalPitch from "@/components/FinalPitch";
-import Hero from "@/components/Hero";
-import Problem from "@/components/Problem";
-import Urgency from "@/components/Urgency";
+import Hero from '@/components/Hero'
+import Problem from '@/components/Problem'
+import Process from '@/components/Process'
+import FAQ from '@/components/FAQ'
+import CTAForm from '@/components/CTAForm'
+import Footer from '@/components/Footer'
 
 export default function Home() {
   return (
     <main>
       <Hero />
       <Problem />
-      <ConsultationIncludes />
-      <Benefits />
-      <Urgency />
-      <FinalPitch />
+      <Process />
+      <FAQ />
       <CTAForm />
+      <Footer />
     </main>
-  );
+  )
 }
