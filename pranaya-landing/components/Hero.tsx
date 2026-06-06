@@ -27,14 +27,16 @@ export default function Hero() {
       <div className="relative z-10 mx-auto max-w-7xl">
         {/* Logo */}
         <header className="animate-enter flex justify-center md:justify-start">
-          <Image
-            src="/logo.png"
-            alt="Pranaya"
-            width={280}
-            height={210}
-            priority
-            className="h-auto w-28 object-contain brightness-0 invert md:w-36"
-          />
+          <div className="inline-flex items-center justify-center rounded-2xl bg-white p-2 shadow-xl shadow-black/10 border border-white/20 md:p-2.5">
+            <Image
+              src="/logo.png"
+              alt="Pranaya"
+              width={160}
+              height={160}
+              priority
+              className="h-14 w-14 object-contain md:h-20 md:w-20"
+            />
+          </div>
         </header>
 
         {/* Main content grid */}
