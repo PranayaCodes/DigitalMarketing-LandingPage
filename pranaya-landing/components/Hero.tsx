@@ -1,64 +1,98 @@
 'use client'
 
 import Image from 'next/image'
+import CTAForm from './CTAForm'
+
+const benefits = [
+  { icon: '🎯', text: 'Personalized strategy for your business' },
+  { icon: '📞', text: '1-hour deep-dive consultation call' },
+  { icon: '📋', text: 'Walk away with a clear action plan' },
+]
+
+const trustBadges = [
+  '100% Free',
+  'No Obligations',
+  'For Nepal-Based Businesses',
+]
 
 export default function Hero() {
-  const scrollToForm = () => {
-    document.getElementById('consultation-form')?.scrollIntoView({ behavior: 'smooth' })
-  }
-
   return (
-    <section className="bg-cream px-6 pb-20 pt-8 md:pb-24">
-      <header className="mx-auto flex max-w-5xl justify-center">
-        <Image
-          src="/logo.png"
-          alt="Pranaya"
-          width={280}
-          height={210}
-          priority
-          className="h-auto w-36 object-contain md:w-48"
-        />
-      </header>
+    <section className="relative min-h-screen overflow-hidden gradient-bg px-4 py-8 md:px-8 md:py-12 lg:py-16">
+      {/* Floating decorative orbs */}
+      <div className="orb w-72 h-72 bg-accent/20 -top-20 -left-20 animate-float-slow" />
+      <div className="orb w-96 h-96 bg-blue-500/10 -bottom-32 -right-32 animate-float-slower" />
+      <div className="orb w-48 h-48 bg-accent/10 top-1/3 right-1/4 animate-float-slow" style={{ animationDelay: '2s' }} />
+      <div className="orb w-32 h-32 bg-purple-500/10 bottom-1/4 left-1/4 animate-float-slower" style={{ animationDelay: '4s' }} />
 
-      <div className="mx-auto mt-8 max-w-4xl text-center md:mt-10">
-        <p className="mx-auto inline-flex rounded-full border border-accent/25 bg-white px-4 py-2 font-body text-sm font-semibold text-accent shadow-sm">
-          Free strategy call for Nepal-based business owners
-        </p>
+      <div className="relative z-10 mx-auto max-w-7xl">
+        {/* Logo */}
+        <header className="animate-enter flex justify-center md:justify-start">
+          <Image
+            src="/logo.png"
+            alt="Pranaya"
+            width={280}
+            height={210}
+            priority
+            className="h-auto w-28 object-contain brightness-0 invert md:w-36"
+          />
+        </header>
 
-        <h1 className="mt-8 font-display text-4xl font-bold leading-[1.08] text-ink md:text-6xl lg:text-7xl">
-          Struggling to get more customers?
-        </h1>
+        {/* Main content grid */}
+        <div className="mt-8 grid items-center gap-8 md:mt-12 lg:grid-cols-2 lg:gap-16">
+          {/* Left side — messaging */}
+          <div className="text-center lg:text-left">
+            {/* Badge */}
+            <div className="animate-enter animate-enter-delay-1">
+              <span className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-4 py-2 font-body text-sm font-semibold text-accent-light backdrop-blur-sm">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-light" />
+                </span>
+                Free strategy call — Limited spots
+              </span>
+            </div>
 
-        <p className="mt-5 font-body text-xl font-semibold text-accent md:text-2xl">
-          Book a FREE 1:1 marketing consultation call
-        </p>
+            {/* Headline */}
+            <h1 className="animate-enter animate-enter-delay-2 mt-6 font-display text-4xl font-bold leading-[1.08] text-white md:text-5xl lg:text-6xl">
+              Struggling to get{' '}
+              <span className="shimmer-text">more customers?</span>
+            </h1>
 
-        <p className="mx-auto mt-5 max-w-2xl font-body text-lg leading-relaxed text-ink/70 md:text-xl">
-          In this 1-hour call, I will understand your business and give you a simple digital
-          marketing plan to get more leads, customers, and sales.
-        </p>
+            {/* Subtext */}
+            <p className="animate-enter animate-enter-delay-3 mt-5 font-body text-lg leading-relaxed text-white/60 md:text-xl">
+              Book a <span className="font-bold text-accent-light">FREE 1:1 consultation</span> and
+              get a simple digital marketing plan to bring more leads, customers, and sales to your business.
+            </p>
 
-        <div className="mt-9">
-          <button
-            onClick={scrollToForm}
-            className="btn-primary rounded-md bg-accent px-8 py-4 font-body text-base font-bold text-white shadow-lg shadow-accent/20 transition hover:-translate-y-0.5 hover:bg-accent-light md:px-10 md:text-lg"
-          >
-            Book your FREE call now
-          </button>
-          <p className="mt-4 font-body text-sm text-ink/55">
-            No pressure. Just clear advice for your business.
-          </p>
-        </div>
+            {/* Benefits */}
+            <div className="animate-enter animate-enter-delay-4 mt-8 space-y-3">
+              {benefits.map((b) => (
+                <div key={b.text} className="flex items-center gap-3 lg:justify-start justify-center">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 text-base backdrop-blur-sm">
+                    {b.icon}
+                  </span>
+                  <span className="font-body text-sm font-medium text-white/80 md:text-base">{b.text}</span>
+                </div>
+              ))}
+            </div>
 
-        <div className="mx-auto mt-12 grid max-w-3xl gap-3 border-y border-warm py-6 text-left md:grid-cols-3">
-          {['For serious inquiries', 'For better ad results', 'For a clear action plan'].map(
-            (item) => (
-              <div key={item} className="flex items-center justify-center gap-3 md:justify-start">
-                <span className="h-2.5 w-2.5 rounded-full bg-accent" />
-                <span className="font-body text-sm font-semibold text-ink/70">{item}</span>
-              </div>
-            )
-          )}
+            {/* Trust badges */}
+            <div className="animate-enter animate-enter-delay-5 mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+              {trustBadges.map((badge) => (
+                <span
+                  key={badge}
+                  className="rounded-full border border-white/10 bg-white/5 px-4 py-1.5 font-body text-xs font-semibold tracking-wide text-white/50 backdrop-blur-sm"
+                >
+                  ✓ {badge}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Right side — Form */}
+          <div className="animate-enter animate-enter-delay-3">
+            <CTAForm />
+          </div>
         </div>
       </div>
     </section>

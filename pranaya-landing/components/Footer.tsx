@@ -6,9 +6,13 @@ export default function Footer() {
         <p className="font-display text-xl italic text-cream/80">
           Your growth starts with one conversation.
         </p>
-        <p className="mt-6 font-body text-sm text-cream/30">
-          Copyright {new Date().getFullYear()} Pranaya. All rights reserved.
-        </p>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-4 font-body text-xs text-cream/25">
+          <span>© {new Date().getFullYear()} Pranaya</span>
+          <span className="hidden sm:inline">·</span>
+          <span>Digital Marketing Consultation</span>
+          <span className="hidden sm:inline">·</span>
+          <span>Nepal</span>
+        </div>
       </div>
     </footer>
   )

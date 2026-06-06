@@ -85,24 +85,29 @@ export default function CTAForm() {
   }, [router])
 
   return (
-    <section id="consultation-form" className="bg-cream px-6 py-20 md:py-24">
+    <div id="consultation-form">
       <link rel="preload" href="https://assets.flodesk.com/flodesk-sans.css" as="style" />
       <link rel="stylesheet" href="https://assets.flodesk.com/flodesk-sans.css" />
 
-      <div className="mx-auto max-w-2xl">
-        <div className="mb-12 text-center">
-          <p className="font-body text-sm font-semibold uppercase tracking-[0.16em] text-accent">
-            Book the Call
-          </p>
-          <h2 className="mt-3 font-display text-3xl font-bold leading-tight text-ink md:text-5xl">
-            Book Your FREE 1:1 Consultation Call
-          </h2>
-          <p className="mt-4 font-body text-lg text-ink/65">
-            Fill up the form below and we will contact you with the next steps.
-          </p>
-        </div>
+      {/* Glassmorphism form card with glow */}
+      <div className="glow-border rounded-2xl">
+        <div className="glass-card rounded-2xl p-6 md:p-8 shadow-2xl">
+          {/* Form header */}
+          <div className="mb-6 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-accent/15">
+              <svg className="h-6 w-6 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h2 className="font-display text-2xl font-bold text-ink md:text-3xl">
+              Book Your FREE Call
+            </h2>
+            <p className="mt-2 font-body text-sm text-ink/55">
+              Fill the form below — we&apos;ll contact you with next steps
+            </p>
+          </div>
 
-        <div className="rounded-lg border border-warm bg-white p-4 shadow-sm md:p-6">
+          {/* Flodesk form — ALL data attributes and structure preserved */}
           <div
             ref={rootRef}
             className="ff-6a0f38dd2e5afde32a2e40f1 flodesk-consultation-form"
@@ -125,12 +130,13 @@ export default function CTAForm() {
                   method="post"
                   data-ff-el="form"
                 >
-                  <div className="ff-6a0f38dd2e5afde32a2e40f1__title">
+                  {/* Hide the Flodesk default title/subtitle since we have our own header */}
+                  <div className="ff-6a0f38dd2e5afde32a2e40f1__title" style={{ display: 'none' }}>
                     <div style={{ wordBreak: 'break-word' }}>
                       <div data-paragraph="true">Free 1:1 Consultation Call</div>
                     </div>
                   </div>
-                  <div className="ff-6a0f38dd2e5afde32a2e40f1__subtitle">
+                  <div className="ff-6a0f38dd2e5afde32a2e40f1__subtitle" style={{ display: 'none' }}>
                     <div style={{ wordBreak: 'break-word' }}>
                       <div data-paragraph="true">
                         Book a FREE Digital Marketing consultation call with me and get a
@@ -269,7 +275,7 @@ export default function CTAForm() {
                         data-ff-tab="submit"
                       >
                         <div>
-                          <span data-draw-element="editable">Subscribe</span>
+                          <span data-draw-element="editable">Book My FREE Call →</span>
                         </div>
                       </button>
                     </div>
@@ -295,12 +301,17 @@ export default function CTAForm() {
               </div>
             </div>
           </div>
-        </div>
 
-        <p className="mt-4 text-center font-body text-sm text-ink/45">
-          Your details are submitted through the live Flodesk form, so the email automation can run
-          normally.
-        </p>
+          {/* Security note */}
+          <div className="mt-4 flex items-center justify-center gap-2">
+            <svg className="h-3.5 w-3.5 text-ink/30" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+            </svg>
+            <p className="font-body text-xs text-ink/35">
+              Your info is secure & never shared
+            </p>
+          </div>
+        </div>
       </div>
 
       <style jsx global>{`
@@ -316,7 +327,7 @@ export default function CTAForm() {
           max-width: 620px;
           overflow: hidden;
           position: relative;
-          background: #ffffff;
+          background: transparent;
         }
 
         [data-ff-el='root'].flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__wrapper {
@@ -327,7 +338,7 @@ export default function CTAForm() {
           color: #1a1a2e;
           width: 100%;
           margin: 0;
-          padding: 34px;
+          padding: 0;
           font-size: 16px;
           text-align: center;
           font-family: 'DM Sans', FlodeskSans, Helvetica, sans-serif;
@@ -337,28 +348,19 @@ export default function CTAForm() {
         }
 
         [data-ff-el='root'].flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__title {
-          color: #1a1a2e;
-          margin: 0 0 12px;
-          display: block;
-          font-family: 'Playfair Display', Georgia, serif;
-          font-size: 34px;
-          font-weight: 700;
-          line-height: 1.1;
+          display: none;
         }
 
         [data-ff-el='root'].flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__subtitle {
-          color: rgba(26, 26, 46, 0.65);
-          margin: 0 0 28px;
-          display: block;
-          font-size: 16px;
+          display: none;
         }
 
         [data-ff-el='root'].flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__fields {
-          margin: 0 0 18px;
+          margin: 0 0 16px;
         }
 
         [data-ff-el='root'].flodesk-consultation-form .fd-form-group {
-          margin: 0 0 15px;
+          margin: 0 0 12px;
           position: relative;
           text-align: left;
         }
@@ -394,22 +396,23 @@ export default function CTAForm() {
 
         [data-ff-el='root'].flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__control {
           color: #1a1a2e;
-          border: 1px solid #e8e2d9;
+          border: 1.5px solid #e8e2d9;
           height: 52px;
           padding: 14px 18px;
           font-size: 15px;
-          background: #ffffff;
+          background: rgba(255,255,255,0.7);
           text-align: left;
           font-family: 'DM Sans', FlodeskSans, Helvetica, sans-serif;
           font-weight: 400;
           line-height: 22px;
-          border-radius: 6px;
+          border-radius: 12px;
           letter-spacing: 0;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
         }
 
         [data-ff-el='root'].flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__label {
-          color: rgba(26, 26, 46, 0.5);
-          border: 1px solid transparent;
+          color: rgba(26, 26, 46, 0.45);
+          border: 1.5px solid transparent;
           padding: 14px 18px;
           font-size: 15px;
           text-align: left;
@@ -421,33 +424,40 @@ export default function CTAForm() {
 
         [data-ff-el='root'].flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__control:focus {
           border-color: #c8922a !important;
-          box-shadow: 0 0 0 3px rgba(200, 146, 42, 0.12);
+          box-shadow: 0 0 0 4px rgba(200, 146, 42, 0.12);
+          background: #ffffff;
         }
 
         [data-ff-el='root'].flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__button {
           color: #ffffff;
           width: 100%;
-          border: 1px solid #c8922a;
+          border: none;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          min-height: 54px;
-          padding: 14px 22px;
-          font-size: 16px;
-          background: #c8922a;
+          min-height: 56px;
+          padding: 16px 24px;
+          font-size: 17px;
+          background: linear-gradient(135deg, #c8922a, #e8b84b);
           text-align: center;
           font-family: 'DM Sans', FlodeskSans, Helvetica, sans-serif;
           font-weight: 700;
           line-height: 22px;
-          border-radius: 6px;
+          border-radius: 12px;
           cursor: pointer;
-          transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+          letter-spacing: 0.3px;
+          transition: transform 0.2s ease, box-shadow 0.3s ease, filter 0.2s ease;
+          box-shadow: 0 4px 15px rgba(200, 146, 42, 0.3), 0 1px 3px rgba(0,0,0,0.1);
         }
 
         [data-ff-el='root'].flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__button:hover {
-          background: #e8b84b;
-          box-shadow: 0 16px 30px rgba(200, 146, 42, 0.2);
-          transform: translateY(-1px);
+          transform: translateY(-2px);
+          box-shadow: 0 8px 25px rgba(200, 146, 42, 0.4), 0 2px 6px rgba(0,0,0,0.1);
+          filter: brightness(1.05);
+        }
+
+        [data-ff-el='root'].flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__button:active {
+          transform: translateY(0);
         }
 
         [data-ff-el='root'].flodesk-consultation-form .fd-form-success,
@@ -473,6 +483,7 @@ export default function CTAForm() {
           font-family: 'DM Sans', FlodeskSans, Helvetica, sans-serif;
           font-weight: 600;
           line-height: 1.6;
+          padding: 20px 0;
         }
 
         [data-ff-el='root'].flodesk-consultation-form.fd-has-error .fd-form-error {
@@ -484,15 +495,11 @@ export default function CTAForm() {
 
         @media (max-width: 767px) {
           [data-ff-el='root'].flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__form {
-            padding: 20px;
+            padding: 0;
             word-break: break-word;
-          }
-
-          [data-ff-el='root'].flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__title {
-            font-size: 28px;
           }
         }
       `}</style>
-    </section>
+    </div>
   )
 }
