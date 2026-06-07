@@ -33,10 +33,13 @@ export default function CTAForm() {
     if (honeypot) return
 
     try {
-      const response = await fetch(
+      // mode: 'no-cors' ensures the POST is actually sent to Flodesk
+      // The response will be opaque (status 0) but the data reaches the server
+      await fetch(
         `https://form.flodesk.com/forms/${formId}/submit`,
         {
           method: 'POST',
+          mode: 'no-cors',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
           },
@@ -50,20 +53,14 @@ export default function CTAForm() {
         }
       )
 
-      if (response.ok || response.status === 302 || response.status === 301 || response.status === 200) {
-        setStatus('success')
-        setTimeout(() => router.push('/thanks'), 1800)
-      } else {
-        // Some Flodesk endpoints return opaque responses via CORS — treat as success
-        setStatus('success')
-        setTimeout(() => router.push('/thanks'), 1800)
-      }
-    } catch {
-      // fetch to a different origin often throws a TypeError due to CORS/opaque response
-      // Flodesk form submissions typically succeed even when fetch "fails" due to CORS
-      // So we treat network errors as success since the POST was still sent
+      // With no-cors, a successful send returns an opaque response (status 0)
+      // If fetch didn't throw, the request was sent successfully
       setStatus('success')
       setTimeout(() => router.push('/thanks'), 1800)
+    } catch {
+      // If fetch throws, something went wrong at the network level
+      setStatus('error')
+      setErrorMsg('Something went wrong. Please try again.')
     }
   }
 
