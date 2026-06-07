@@ -88,7 +88,7 @@ export default function CTAForm() {
       const form = root.querySelector('form')
       if (!form) return
 
-      form.addEventListener('submit', (e) => {
+      const onSubmit = (e: Event) => {
         // Check if reCAPTCHA response exists
         const captchaResponse = root.querySelector('textarea[name="g-recaptcha-response"]') as HTMLTextAreaElement | null
         const captchaChecked = captchaResponse && captchaResponse.value && captchaResponse.value.length > 0
@@ -97,39 +97,66 @@ export default function CTAForm() {
           e.preventDefault()
           e.stopPropagation()
           setShowCaptchaWarning(true)
-          setShakeCaptcha(true)
-          setTimeout(() => setShakeCaptcha(false), 820)
 
-          // Scroll to the captcha area
-          const captchaEl = root.querySelector('iframe[title*="reCAPTCHA"]')
+          const captchaEl = root.querySelector('[data-ff-el="captcha"]')
             || root.querySelector('.g-recaptcha')
-            || root.querySelector('[data-ff-el="captcha"]')
+            || root.querySelector('iframe[title*="reCAPTCHA"]')?.parentElement
           if (captchaEl) {
+            captchaEl.classList.add('captcha-shake')
+            setTimeout(() => captchaEl.classList.remove('captcha-shake'), 820)
             captchaEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
           }
         }
-      }, true) // capture phase to run before Flodesk's handler
+      }
+
+      form.addEventListener('submit', onSubmit, true) // capture phase to run before Flodesk's handler
+      return () => form.removeEventListener('submit', onSubmit, true)
     }
 
-    // Wait for Flodesk to inject the captcha, then set up interception
-    const captchaObserver = new MutationObserver(() => {
-      const captchaEl = root.querySelector('iframe[title*="reCAPTCHA"]')
+    let removeSubmitInterceptor: (() => void) | undefined
+
+    // Wait for Flodesk to inject the captcha, then style it in-place and intercept submit
+    const styleAndInterceptCaptcha = () => {
+      const captchaEl = root.querySelector('[data-ff-el="captcha"]')
         || root.querySelector('.g-recaptcha')
-        || root.querySelector('[data-ff-el="captcha"]')
+        || root.querySelector('iframe[title*="reCAPTCHA"]')?.parentElement
+
       if (captchaEl) {
-        interceptSubmit()
+        // Dynamically apply our wrapper styling to the actual container
+        captchaEl.classList.add('captcha-attention-wrapper')
+
+        // Prepend the reminder label if not already present
+        if (!captchaEl.querySelector('.captcha-reminder-label')) {
+          const label = document.createElement('div')
+          label.className = 'captcha-reminder-label'
+          label.innerHTML = '<span class="captcha-arrow">👇</span><span>Please verify you\'re human before submitting</span><span class="captcha-arrow">👇</span>'
+          captchaEl.insertBefore(label, captchaEl.firstChild)
+        }
+
+        if (!removeSubmitInterceptor) {
+          removeSubmitInterceptor = interceptSubmit()
+        }
+        return true
+      }
+      return false
+    }
+
+    const captchaObserver = new MutationObserver(() => {
+      if (styleAndInterceptCaptcha()) {
         captchaObserver.disconnect()
       }
     })
     captchaObserver.observe(root, { childList: true, subtree: true })
 
-    // Also try after a delay in case mutation observer misses it
-    const timer = setTimeout(interceptSubmit, 3000)
+    // Also run immediately and after a delay in case it's already there or loaded asynchronously
+    styleAndInterceptCaptcha()
+    const timer = setTimeout(styleAndInterceptCaptcha, 3000)
 
     return () => {
       observer.disconnect()
       captchaObserver.disconnect()
       clearTimeout(timer)
+      if (removeSubmitInterceptor) removeSubmitInterceptor()
     }
   }, [router])
 
@@ -313,15 +340,7 @@ export default function CTAForm() {
                       />
                     </div>
 
-                    {/* ===== CAPTCHA ATTENTION AREA ===== */}
-                    <div className={`captcha-attention-wrapper ${shakeCaptcha ? 'captcha-shake' : ''}`}>
-                      <div className="captcha-reminder-label">
-                        <span className="captcha-arrow">👇</span>
-                        <span>Please verify you&apos;re human before submitting</span>
-                        <span className="captcha-arrow">👇</span>
-                      </div>
-                      {/* Flodesk SDK injects reCAPTCHA here automatically */}
-                    </div>
+
 
                     {/* Warning message when captcha is not completed */}
                     {showCaptchaWarning && (
