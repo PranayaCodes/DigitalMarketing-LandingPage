@@ -1,71 +1,137 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+declare global {
+  interface Window {
+    FlodeskObject?: string
+    fd?: {
+      (...args: unknown[]): void
+      q?: unknown[]
+    }
+  }
+}
+
 const formId = '6a0f38dd2e5afde32a2e40f1'
+const rootSelector = '.ff-6a0f38dd2e5afde32a2e40f1'
 
 export default function CTAForm() {
   const router = useRouter()
-  const formRef = useRef<HTMLFormElement>(null)
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
-  const [errorMsg, setErrorMsg] = useState('')
+  const rootRef = useRef<HTMLDivElement>(null)
+  const redirectedRef = useRef(false)
+  const [showCaptchaWarning, setShowCaptchaWarning] = useState(false)
+  const [shakeCaptcha, setShakeCaptcha] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setStatus('loading')
-    setErrorMsg('')
-
-    const form = formRef.current
-    if (!form) return
-
-    const formData = new FormData(form)
-
-    // Build the submission payload
-    const email = formData.get('email') as string
-    const firstName = formData.get('firstName') as string
-    const whatsapp = formData.get('fields.whatsappp') as string
-    const businessName = formData.get('fields.businessName') as string
-    const websiteLink = formData.get('fields.websiteOrFacebookPageLink') as string
-
-    // Honeypot check
-    const honeypot = formData.get('confirm_email_address') as string
-    if (honeypot) return
-
-    try {
-      // mode: 'no-cors' ensures the POST is actually sent to Flodesk
-      // The response will be opaque (status 0) but the data reaches the server
-      await fetch(
-        `https://form.flodesk.com/forms/${formId}/submit`,
-        {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: new URLSearchParams({
-            email,
-            firstName: firstName || '',
-            'fields.whatsappp': whatsapp,
-            'fields.businessName': businessName,
-            'fields.websiteOrFacebookPageLink': websiteLink || '',
-          }).toString(),
+  useEffect(() => {
+    const loadFlodesk = () => {
+      if (!window.fd) {
+        window.FlodeskObject = 'fd'
+        const fn = (...args: unknown[]) => {
+          ;(window.fd!.q = window.fd!.q || []).push(args)
         }
-      )
+        window.fd = fn
 
-      // With no-cors, a successful send returns an opaque response (status 0)
-      // If fetch didn't throw, the request was sent successfully
-      setStatus('success')
-      setTimeout(() => router.push('/thanks'), 1800)
-    } catch {
-      // If fetch throws, something went wrong at the network level
-      setStatus('error')
-      setErrorMsg('Something went wrong. Please try again.')
+        const firstScript = document.getElementsByTagName('script')[0]
+        const version = '?v=' + Math.floor(new Date().getTime() / (120 * 1000)) * 60
+
+        const moduleScript = document.createElement('script')
+        moduleScript.async = true
+        moduleScript.type = 'module'
+        moduleScript.src = 'https://assets.flodesk.com/universal.mjs' + version
+        firstScript.parentNode?.insertBefore(moduleScript, firstScript)
+
+        const legacyScript = document.createElement('script')
+        legacyScript.async = true
+        legacyScript.noModule = true
+        legacyScript.src = 'https://assets.flodesk.com/universal.js' + version
+        firstScript.parentNode?.insertBefore(legacyScript, firstScript)
+      }
+
+      window.fd('form:handle', {
+        formId,
+        rootEl: rootSelector,
+      })
     }
-  }
 
-  const isSuccess = status === 'success'
-  const isLoading = status === 'loading'
+    loadFlodesk()
+
+    const root = rootRef.current
+    if (!root) return
+
+    const redirectAfterSuccess = () => {
+      if (redirectedRef.current) return
+
+      const hasSuccessStage = root.getAttribute('data-ff-stage') === 'success'
+      const hasSuccessClass = root.classList.contains('fd-has-success')
+      const successMessage = root.querySelector('[data-ff-el="success"]')
+      const successVisible = successMessage
+        ? window.getComputedStyle(successMessage).display !== 'none'
+        : false
+
+      if (hasSuccessStage || hasSuccessClass || successVisible) {
+        redirectedRef.current = true
+        window.setTimeout(() => router.push('/thanks'), 1800)
+      }
+    }
+
+    const observer = new MutationObserver(redirectAfterSuccess)
+    observer.observe(root, {
+      attributes: true,
+      childList: true,
+      subtree: true,
+      attributeFilter: ['class', 'data-ff-stage', 'style'],
+    })
+
+    // Intercept form submit to check if captcha is done
+    const interceptSubmit = () => {
+      const form = root.querySelector('form')
+      if (!form) return
+
+      form.addEventListener('submit', (e) => {
+        // Check if reCAPTCHA response exists
+        const captchaResponse = root.querySelector('textarea[name="g-recaptcha-response"]') as HTMLTextAreaElement | null
+        const captchaChecked = captchaResponse && captchaResponse.value && captchaResponse.value.length > 0
+
+        if (!captchaChecked) {
+          e.preventDefault()
+          e.stopPropagation()
+          setShowCaptchaWarning(true)
+          setShakeCaptcha(true)
+          setTimeout(() => setShakeCaptcha(false), 820)
+
+          // Scroll to the captcha area
+          const captchaEl = root.querySelector('iframe[title*="reCAPTCHA"]')
+            || root.querySelector('.g-recaptcha')
+            || root.querySelector('[data-ff-el="captcha"]')
+          if (captchaEl) {
+            captchaEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          }
+        }
+      }, true) // capture phase to run before Flodesk's handler
+    }
+
+    // Wait for Flodesk to inject the captcha, then set up interception
+    const captchaObserver = new MutationObserver(() => {
+      const captchaEl = root.querySelector('iframe[title*="reCAPTCHA"]')
+        || root.querySelector('.g-recaptcha')
+        || root.querySelector('[data-ff-el="captcha"]')
+      if (captchaEl) {
+        interceptSubmit()
+        captchaObserver.disconnect()
+      }
+    })
+    captchaObserver.observe(root, { childList: true, subtree: true })
+
+    // Also try after a delay in case mutation observer misses it
+    const timer = setTimeout(interceptSubmit, 3000)
+
+    return () => {
+      observer.disconnect()
+      captchaObserver.disconnect()
+      clearTimeout(timer)
+    }
+  }, [router])
 
   return (
     <div id="consultation-form">
@@ -90,166 +156,217 @@ export default function CTAForm() {
             </p>
           </div>
 
-          {/* Form area */}
-          <div className="ff-6a0f38dd2e5afde32a2e40f1 flodesk-consultation-form">
+          {/* Flodesk form — ALL data attributes and structure preserved */}
+          <div
+            ref={rootRef}
+            className="ff-6a0f38dd2e5afde32a2e40f1 flodesk-consultation-form"
+            data-ff-el="root"
+            data-ff-version="3"
+            data-ff-type="inline"
+            data-ff-name="inlineNoImage"
+            data-ff-stage="default"
+          >
+            <div
+              data-ff-el="config"
+              data-ff-config="eyJ0cmlnZ2VyIjp7Im1vZGUiOiJpbW1lZGlhdGVseSIsInZhbHVlIjowfSwib25TdWNjZXNzIjp7Im1vZGUiOiJtZXNzYWdlIiwibWVzc2FnZSI6IiIsInJlZGlyZWN0VXJsIjoiIn0sImNvaSI6ZmFsc2UsInNob3dGb3JSZXR1cm5WaXNpdG9ycyI6dHJ1ZSwibm90aWZpY2F0aW9uIjp0cnVlLCJnZHByIjp7ImFjY2VwdHNNYXJrZXRpbmciOmZhbHNlLCJwcml2YWN5UG9saWN5Ijp7ImVuYWJsZWQiOmZhbHNlLCJtYW5kYXRvcnkiOmZhbHNlfX0sInRyYWNraW5nQ29uZmlnIjp7Im1ldGFQaXhlbElkIjoiIiwiY29va2llQmFubmVyRW5hYmxlZCI6ZmFsc2UsImdvb2dsZUFuYWx5dGljc0lkIjoiIn19"
+              style={{ display: 'none' }}
+            />
             <div className="ff-6a0f38dd2e5afde32a2e40f1__container">
               <div className="ff-6a0f38dd2e5afde32a2e40f1__wrapper">
-                {!isSuccess ? (
-                  <form
-                    ref={formRef}
-                    className="ff-6a0f38dd2e5afde32a2e40f1__form"
-                    onSubmit={handleSubmit}
-                  >
-                    <div className="ff-6a0f38dd2e5afde32a2e40f1__content fd-form-content">
-                      <div className="ff-6a0f38dd2e5afde32a2e40f1__fields">
-                        <div className="ff-6a0f38dd2e5afde32a2e40f1__field fd-form-group">
-                          <input
-                            id="ff-6a0f38dd2e5afde32a2e40f1-email"
-                            className="ff-6a0f38dd2e5afde32a2e40f1__control fd-form-control"
-                            type="email"
-                            maxLength={255}
-                            name="email"
-                            placeholder="Email address"
-                            required
-                          />
-                          <label
-                            htmlFor="ff-6a0f38dd2e5afde32a2e40f1-email"
-                            className="ff-6a0f38dd2e5afde32a2e40f1__label fd-form-label"
-                          >
-                            <div>
-                              <div>Email address</div>
-                            </div>
-                          </label>
-                        </div>
-
-                        <div className="ff-6a0f38dd2e5afde32a2e40f1__field fd-form-group">
-                          <input
-                            id="ff-6a0f38dd2e5afde32a2e40f1-firstName"
-                            className="ff-6a0f38dd2e5afde32a2e40f1__control fd-form-control"
-                            type="text"
-                            maxLength={255}
-                            name="firstName"
-                            placeholder="First name"
-                          />
-                          <label
-                            htmlFor="ff-6a0f38dd2e5afde32a2e40f1-firstName"
-                            className="ff-6a0f38dd2e5afde32a2e40f1__label fd-form-label"
-                          >
-                            <div>
-                              <div>First name</div>
-                            </div>
-                          </label>
-                        </div>
-
-                        <div className="ff-6a0f38dd2e5afde32a2e40f1__field fd-form-group">
-                          <input
-                            id="ff-6a0f38dd2e5afde32a2e40f1-phohi5G6de"
-                            className="ff-6a0f38dd2e5afde32a2e40f1__control fd-form-control"
-                            type="text"
-                            maxLength={255}
-                            name="fields.whatsappp"
-                            placeholder="WhatsApp Number"
-                            required
-                          />
-                          <label
-                            htmlFor="ff-6a0f38dd2e5afde32a2e40f1-phohi5G6de"
-                            className="ff-6a0f38dd2e5afde32a2e40f1__label fd-form-label"
-                          >
-                            <div>
-                              <div>WhatsApp Number</div>
-                            </div>
-                          </label>
-                        </div>
-
-                        <div className="ff-6a0f38dd2e5afde32a2e40f1__field fd-form-group">
-                          <input
-                            id="ff-6a0f38dd2e5afde32a2e40f1-3wgQkEYr28"
-                            className="ff-6a0f38dd2e5afde32a2e40f1__control fd-form-control"
-                            type="text"
-                            maxLength={255}
-                            name="fields.businessName"
-                            placeholder="Business Name"
-                            required
-                          />
-                          <label
-                            htmlFor="ff-6a0f38dd2e5afde32a2e40f1-3wgQkEYr28"
-                            className="ff-6a0f38dd2e5afde32a2e40f1__label fd-form-label"
-                          >
-                            <div>
-                              <div>Business Name</div>
-                            </div>
-                          </label>
-                        </div>
-
-                        <div className="ff-6a0f38dd2e5afde32a2e40f1__field fd-form-group">
-                          <input
-                            id="ff-6a0f38dd2e5afde32a2e40f1-e61aHoHa86"
-                            className="ff-6a0f38dd2e5afde32a2e40f1__control fd-form-control"
-                            type="text"
-                            maxLength={255}
-                            name="fields.websiteOrFacebookPageLink"
-                            placeholder="Website or Facebook Page Link"
-                          />
-                          <label
-                            htmlFor="ff-6a0f38dd2e5afde32a2e40f1-e61aHoHa86"
-                            className="ff-6a0f38dd2e5afde32a2e40f1__label fd-form-label"
-                          >
-                            <div>
-                              <div>Website or Facebook Page Link</div>
-                            </div>
-                          </label>
-                        </div>
-
-                        {/* Honeypot field for basic spam protection */}
-                        <input
-                          type="text"
-                          maxLength={255}
-                          name="confirm_email_address"
-                          style={{ display: 'none' }}
-                          tabIndex={-1}
-                          autoComplete="off"
-                        />
-                      </div>
-
-                      <div className="ff-6a0f38dd2e5afde32a2e40f1__footer">
-                        <button
-                          type="submit"
-                          className="ff-6a0f38dd2e5afde32a2e40f1__button fd-btn"
-                          disabled={isLoading}
-                          style={isLoading ? { opacity: 0.7, cursor: 'wait' } : {}}
-                        >
-                          <div>
-                            <span data-draw-element="editable">
-                              {isLoading ? 'Submitting...' : 'Book My FREE Call →'}
-                            </span>
-                          </div>
-                        </button>
+                <form
+                  className="ff-6a0f38dd2e5afde32a2e40f1__form"
+                  action="https://form.flodesk.com/forms/6a0f38dd2e5afde32a2e40f1/submit"
+                  method="post"
+                  data-ff-el="form"
+                >
+                  {/* Hide the Flodesk default title/subtitle since we have our own header */}
+                  <div className="ff-6a0f38dd2e5afde32a2e40f1__title" style={{ display: 'none' }}>
+                    <div style={{ wordBreak: 'break-word' }}>
+                      <div data-paragraph="true">Free 1:1 Consultation Call</div>
+                    </div>
+                  </div>
+                  <div className="ff-6a0f38dd2e5afde32a2e40f1__subtitle" style={{ display: 'none' }}>
+                    <div style={{ wordBreak: 'break-word' }}>
+                      <div data-paragraph="true">
+                        Book a FREE Digital Marketing consultation call with me and get a
+                        customized digital marketing strategy for your business!
                       </div>
                     </div>
+                  </div>
 
-                    {status === 'error' && errorMsg && (
-                      <div style={{
-                        color: '#c84e41',
-                        marginTop: '15px',
-                        fontFamily: "'DM Sans', FlodeskSans, Helvetica, sans-serif",
-                        textAlign: 'center',
-                        fontSize: '14px',
-                      }}>
-                        {errorMsg}
+                  <div
+                    className="ff-6a0f38dd2e5afde32a2e40f1__content fd-form-content"
+                    data-ff-el="content"
+                  >
+                    <div
+                      className="ff-6a0f38dd2e5afde32a2e40f1__fields"
+                      data-ff-el="fields"
+                    >
+                      <div className="ff-6a0f38dd2e5afde32a2e40f1__field fd-form-group">
+                        <input
+                          id="ff-6a0f38dd2e5afde32a2e40f1-email"
+                          className="ff-6a0f38dd2e5afde32a2e40f1__control fd-form-control"
+                          type="text"
+                          maxLength={255}
+                          name="email"
+                          placeholder="Email address"
+                          data-ff-tab="email::firstName"
+                          required
+                        />
+                        <label
+                          htmlFor="ff-6a0f38dd2e5afde32a2e40f1-email"
+                          className="ff-6a0f38dd2e5afde32a2e40f1__label fd-form-label"
+                        >
+                          <div>
+                            <div>Email address</div>
+                          </div>
+                        </label>
+                      </div>
+
+                      <div className="ff-6a0f38dd2e5afde32a2e40f1__field fd-form-group">
+                        <input
+                          id="ff-6a0f38dd2e5afde32a2e40f1-firstName"
+                          className="ff-6a0f38dd2e5afde32a2e40f1__control fd-form-control"
+                          type="text"
+                          maxLength={255}
+                          name="firstName"
+                          placeholder="First name"
+                          data-ff-tab="firstName:email:fields.whatsappp"
+                        />
+                        <label
+                          htmlFor="ff-6a0f38dd2e5afde32a2e40f1-firstName"
+                          className="ff-6a0f38dd2e5afde32a2e40f1__label fd-form-label"
+                        >
+                          <div>
+                            <div>First name</div>
+                          </div>
+                        </label>
+                      </div>
+
+                      <div className="ff-6a0f38dd2e5afde32a2e40f1__field fd-form-group">
+                        <input
+                          id="ff-6a0f38dd2e5afde32a2e40f1-phohi5G6de"
+                          className="ff-6a0f38dd2e5afde32a2e40f1__control fd-form-control"
+                          type="text"
+                          maxLength={255}
+                          name="fields.whatsappp"
+                          placeholder="WhatsApp Number"
+                          data-ff-tab="fields.whatsappp:firstName:fields.businessName"
+                          required
+                        />
+                        <label
+                          htmlFor="ff-6a0f38dd2e5afde32a2e40f1-phohi5G6de"
+                          className="ff-6a0f38dd2e5afde32a2e40f1__label fd-form-label"
+                        >
+                          <div>
+                            <div>WhatsApp Number</div>
+                          </div>
+                        </label>
+                      </div>
+
+                      <div className="ff-6a0f38dd2e5afde32a2e40f1__field fd-form-group">
+                        <input
+                          id="ff-6a0f38dd2e5afde32a2e40f1-3wgQkEYr28"
+                          className="ff-6a0f38dd2e5afde32a2e40f1__control fd-form-control"
+                          type="text"
+                          maxLength={255}
+                          name="fields.businessName"
+                          placeholder="Business Name"
+                          data-ff-tab="fields.businessName:fields.whatsappp:fields.websiteOrFacebookPageLink"
+                          required
+                        />
+                        <label
+                          htmlFor="ff-6a0f38dd2e5afde32a2e40f1-3wgQkEYr28"
+                          className="ff-6a0f38dd2e5afde32a2e40f1__label fd-form-label"
+                        >
+                          <div>
+                            <div>Business Name</div>
+                          </div>
+                        </label>
+                      </div>
+
+                      <div className="ff-6a0f38dd2e5afde32a2e40f1__field fd-form-group">
+                        <input
+                          id="ff-6a0f38dd2e5afde32a2e40f1-e61aHoHa86"
+                          className="ff-6a0f38dd2e5afde32a2e40f1__control fd-form-control"
+                          type="text"
+                          maxLength={255}
+                          name="fields.websiteOrFacebookPageLink"
+                          placeholder="Website or Facebook Page Link"
+                          data-ff-tab="fields.websiteOrFacebookPageLink:fields.businessName:submit"
+                        />
+                        <label
+                          htmlFor="ff-6a0f38dd2e5afde32a2e40f1-e61aHoHa86"
+                          className="ff-6a0f38dd2e5afde32a2e40f1__label fd-form-label"
+                        >
+                          <div>
+                            <div>Website or Facebook Page Link</div>
+                          </div>
+                        </label>
+                      </div>
+
+                      <input
+                        type="text"
+                        maxLength={255}
+                        name="confirm_email_address"
+                        style={{ display: 'none' }}
+                      />
+                    </div>
+
+                    {/* ===== CAPTCHA ATTENTION AREA ===== */}
+                    <div className={`captcha-attention-wrapper ${shakeCaptcha ? 'captcha-shake' : ''}`}>
+                      <div className="captcha-reminder-label">
+                        <span className="captcha-arrow">👇</span>
+                        <span>Please verify you&apos;re human before submitting</span>
+                        <span className="captcha-arrow">👇</span>
+                      </div>
+                      {/* Flodesk SDK injects reCAPTCHA here automatically */}
+                    </div>
+
+                    {/* Warning message when captcha is not completed */}
+                    {showCaptchaWarning && (
+                      <div className="captcha-warning-banner">
+                        <svg className="captcha-warning-icon" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        <span>⚠️ You must check the &quot;I&apos;m not a robot&quot; box above before submitting!</span>
                       </div>
                     )}
-                  </form>
-                ) : (
-                  <div className="ff-6a0f38dd2e5afde32a2e40f1__form" style={{ width: '100%' }}>
+
+                    <div
+                      className="ff-6a0f38dd2e5afde32a2e40f1__footer"
+                      data-ff-el="footer"
+                    >
+                      <button
+                        type="submit"
+                        className="ff-6a0f38dd2e5afde32a2e40f1__button fd-btn"
+                        data-ff-el="submit"
+                        data-ff-tab="submit"
+                      >
+                        <div>
+                          <span data-draw-element="editable">Book My FREE Call →</span>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div
+                    className="ff-6a0f38dd2e5afde32a2e40f1__success fd-form-success"
+                    data-ff-el="success"
+                  >
                     <div className="ff-6a0f38dd2e5afde32a2e40f1__success-message">
                       <div>
                         <div>
-                          <div data-paragraph="true">🎉 Thank you! Redirecting you now...</div>
+                          <div data-paragraph="true">Thank you for subscribing!</div>
                         </div>
                       </div>
                     </div>
                   </div>
-                )}
+                  <div
+                    className="ff-6a0f38dd2e5afde32a2e40f1__error fd-form-error"
+                    data-ff-el="error"
+                  />
+                </form>
               </div>
             </div>
           </div>
@@ -267,29 +384,14 @@ export default function CTAForm() {
       </div>
 
       <style jsx global>{`
-        /* Hide any reCAPTCHA that might get injected */
-        .grecaptcha-badge,
-        iframe[src*="recaptcha"],
-        iframe[title*="reCAPTCHA"],
-        [data-ff-el="captcha"],
-        .ff-6a0f38dd2e5afde32a2e40f1 [data-ff-el="captcha"],
-        .g-recaptcha,
-        .rc-anchor-container {
-          display: none !important;
-          visibility: hidden !important;
-          height: 0 !important;
-          width: 0 !important;
-          overflow: hidden !important;
-        }
-
-        .flodesk-consultation-form,
-        .flodesk-consultation-form *,
-        .flodesk-consultation-form *::before,
-        .flodesk-consultation-form *::after {
+        [data-ff-el='root'].flodesk-consultation-form,
+        [data-ff-el='root'].flodesk-consultation-form *,
+        [data-ff-el='root'].flodesk-consultation-form *::before,
+        [data-ff-el='root'].flodesk-consultation-form *::after {
           box-sizing: border-box;
         }
 
-        .flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__container {
+        [data-ff-el='root'].flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__container {
           margin: 0 auto;
           max-width: 620px;
           overflow: hidden;
@@ -297,11 +399,11 @@ export default function CTAForm() {
           background: transparent;
         }
 
-        .flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__wrapper {
+        [data-ff-el='root'].flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__wrapper {
           display: flex;
         }
 
-        .flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__form {
+        [data-ff-el='root'].flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__form {
           color: #1a1a2e;
           width: 100%;
           margin: 0;
@@ -314,17 +416,25 @@ export default function CTAForm() {
           letter-spacing: 0;
         }
 
-        .flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__fields {
+        [data-ff-el='root'].flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__title {
+          display: none;
+        }
+
+        [data-ff-el='root'].flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__subtitle {
+          display: none;
+        }
+
+        [data-ff-el='root'].flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__fields {
           margin: 0 0 16px;
         }
 
-        .flodesk-consultation-form .fd-form-group {
+        [data-ff-el='root'].flodesk-consultation-form .fd-form-group {
           margin: 0 0 12px;
           position: relative;
           text-align: left;
         }
 
-        .flodesk-consultation-form .fd-form-control {
+        [data-ff-el='root'].flodesk-consultation-form .fd-form-control {
           width: 100%;
           display: block;
           outline: none;
@@ -332,12 +442,12 @@ export default function CTAForm() {
           appearance: none;
         }
 
-        .flodesk-consultation-form .fd-form-control::placeholder {
+        [data-ff-el='root'].flodesk-consultation-form .fd-form-control::placeholder {
           color: transparent !important;
           opacity: 0 !important;
         }
 
-        .flodesk-consultation-form .fd-form-label {
+        [data-ff-el='root'].flodesk-consultation-form .fd-form-label {
           top: 0;
           left: 0;
           right: 0;
@@ -349,11 +459,11 @@ export default function CTAForm() {
           pointer-events: none;
         }
 
-        .flodesk-consultation-form .fd-form-control:not(:placeholder-shown) + .fd-form-label {
+        [data-ff-el='root'].flodesk-consultation-form .fd-form-control:not(:placeholder-shown) + .fd-form-label {
           opacity: 0;
         }
 
-        .flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__control {
+        [data-ff-el='root'].flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__control {
           color: #1a1a2e;
           border: 1.5px solid #e8e2d9;
           height: 52px;
@@ -369,7 +479,7 @@ export default function CTAForm() {
           transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
         }
 
-        .flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__label {
+        [data-ff-el='root'].flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__label {
           color: rgba(26, 26, 46, 0.45);
           border: 1.5px solid transparent;
           padding: 14px 18px;
@@ -381,13 +491,13 @@ export default function CTAForm() {
           letter-spacing: 0;
         }
 
-        .flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__control:focus {
+        [data-ff-el='root'].flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__control:focus {
           border-color: #c8922a !important;
           box-shadow: 0 0 0 4px rgba(200, 146, 42, 0.12);
           background: #ffffff;
         }
 
-        .flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__button {
+        [data-ff-el='root'].flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__button {
           color: #ffffff;
           width: 100%;
           border: none;
@@ -409,21 +519,32 @@ export default function CTAForm() {
           box-shadow: 0 4px 15px rgba(200, 146, 42, 0.3), 0 1px 3px rgba(0,0,0,0.1);
         }
 
-        .flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__button:hover {
+        [data-ff-el='root'].flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__button:hover {
           transform: translateY(-2px);
           box-shadow: 0 8px 25px rgba(200, 146, 42, 0.4), 0 2px 6px rgba(0,0,0,0.1);
           filter: brightness(1.05);
         }
 
-        .flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__button:active {
+        [data-ff-el='root'].flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__button:active {
           transform: translateY(0);
         }
 
-        .flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__button:disabled {
-          cursor: wait;
+        [data-ff-el='root'].flodesk-consultation-form .fd-form-success,
+        [data-ff-el='root'].flodesk-consultation-form .fd-form-error {
+          display: none;
         }
 
-        .flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__success-message {
+        [data-ff-el='root'].flodesk-consultation-form[data-ff-stage='success'] .fd-form-content,
+        [data-ff-el='root'].flodesk-consultation-form.fd-has-success .fd-form-content {
+          display: none;
+        }
+
+        [data-ff-el='root'].flodesk-consultation-form[data-ff-stage='success'] .fd-form-success,
+        [data-ff-el='root'].flodesk-consultation-form.fd-has-success .fd-form-success {
+          display: block;
+        }
+
+        [data-ff-el='root'].flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__success-message {
           color: #1a1a2e;
           display: block;
           font-size: 18px;
@@ -434,11 +555,121 @@ export default function CTAForm() {
           padding: 20px 0;
         }
 
+        [data-ff-el='root'].flodesk-consultation-form.fd-has-error .fd-form-error {
+          color: #c84e41;
+          display: block;
+          margin-top: 15px;
+          font-family: 'DM Sans', FlodeskSans, Helvetica, sans-serif;
+        }
+
         @media (max-width: 767px) {
-          .flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__form {
+          [data-ff-el='root'].flodesk-consultation-form .ff-6a0f38dd2e5afde32a2e40f1__form {
             padding: 0;
             word-break: break-word;
           }
+        }
+
+        /* ========== CAPTCHA ATTENTION STYLES ========== */
+
+        /* Wrapper that highlights the captcha area */
+        .captcha-attention-wrapper {
+          margin: 16px 0;
+          padding: 16px;
+          border-radius: 12px;
+          border: 2px solid #c8922a;
+          background: linear-gradient(135deg, rgba(200, 146, 42, 0.06), rgba(232, 184, 75, 0.08));
+          position: relative;
+          animation: captchaPulseGlow 2.5s ease-in-out infinite;
+        }
+
+        /* Pulsing glow animation */
+        @keyframes captchaPulseGlow {
+          0%, 100% {
+            box-shadow: 0 0 8px rgba(200, 146, 42, 0.2), 0 0 0 0 rgba(200, 146, 42, 0);
+            border-color: #c8922a;
+          }
+          50% {
+            box-shadow: 0 0 16px rgba(200, 146, 42, 0.35), 0 0 30px rgba(200, 146, 42, 0.15);
+            border-color: #e8b84b;
+          }
+        }
+
+        /* Reminder label above captcha */
+        .captcha-reminder-label {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          margin-bottom: 12px;
+          font-family: 'DM Sans', FlodeskSans, Helvetica, sans-serif;
+          font-size: 14px;
+          font-weight: 600;
+          color: #c8922a;
+          text-align: center;
+          letter-spacing: 0.2px;
+        }
+
+        .captcha-arrow {
+          font-size: 18px;
+          animation: captchaBounce 1.5s ease-in-out infinite;
+        }
+
+        @keyframes captchaBounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(4px); }
+        }
+
+        /* Shake animation when user tries to submit without captcha */
+        .captcha-shake {
+          animation: shakeIt 0.8s ease-in-out !important;
+        }
+
+        @keyframes shakeIt {
+          0%, 100% { transform: translateX(0); }
+          10%, 50%, 90% { transform: translateX(-6px); }
+          30%, 70% { transform: translateX(6px); }
+        }
+
+        /* Warning banner */
+        .captcha-warning-banner {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          margin: 12px 0;
+          padding: 12px 16px;
+          background: linear-gradient(135deg, #fff3cd, #ffe9a0);
+          border: 1.5px solid #f0c040;
+          border-radius: 10px;
+          font-family: 'DM Sans', FlodeskSans, Helvetica, sans-serif;
+          font-size: 13.5px;
+          font-weight: 600;
+          color: #7a5a00;
+          text-align: center;
+          animation: warningFadeIn 0.4s ease-out;
+        }
+
+        .captcha-warning-icon {
+          width: 20px;
+          height: 20px;
+          color: #d4a017;
+          flex-shrink: 0;
+        }
+
+        @keyframes warningFadeIn {
+          from { opacity: 0; transform: translateY(-8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Make the reCAPTCHA iframe more prominent within our wrapper */
+        .captcha-attention-wrapper iframe {
+          margin: 0 auto;
+          display: block;
+        }
+
+        .captcha-attention-wrapper .g-recaptcha {
+          display: flex;
+          justify-content: center;
         }
       `}</style>
     </div>
